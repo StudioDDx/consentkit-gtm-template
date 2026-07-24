@@ -16,5 +16,5 @@ documentation: "https://github.com/ruca-radio/consentkit/tree/main/gtm-template"
 versions:
   # TODO: replace PLACEHOLDER with the full SHA of the gallery-repo commit
   # that contains the initial template.tpl, then commit this file.
-  - sha: PLACEHOLDER-WILL-FIX
+  - sha: 2f1b2c145822a63536fd55ebd086f5fb68cc17b9
     changeNotes: Initial release.
