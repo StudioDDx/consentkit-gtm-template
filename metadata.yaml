@@ -1,0 +1,20 @@
+# metadata.yaml for the GTM Community Template Gallery.
+#
+# This file must live at the ROOT of the dedicated gallery GitHub repository
+# (see README.md, "Community Template Gallery submission"). It is kept here
+# because gtm-template/ is the source of truth that gets synced there.
+#
+# The gallery reads the LAST commit referenced in `versions` and serves the
+# template.tpl from that commit. To publish the template or an update:
+#   1. Commit template.tpl (and friends) to the gallery repo.
+#   2. Copy that commit's full SHA into a NEW entry at the TOP of `versions`.
+#   3. Commit the metadata.yaml change itself.
+# The gallery picks up the new version within ~2-3 days.
+
+homepage: "https://consentkit.us"
+documentation: "https://github.com/ruca-radio/consentkit/tree/main/gtm-template"
+versions:
+  # TODO: replace PLACEHOLDER with the full SHA of the gallery-repo commit
+  # that contains the initial template.tpl, then commit this file.
+  - sha: PLACEHOLDER-WILL-FIX
+    changeNotes: Initial release.
