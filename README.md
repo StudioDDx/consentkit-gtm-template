@@ -177,14 +177,16 @@ are from Google's
 **one** `template.tpl`, and serve everything from the **main** branch —
 repos that don't match are removed from the gallery. The gallery repo must
 also be **public** so Google's crawler can read it, while the
-`ruca-radio/consentkit` monorepo this directory lives in is **private**.
-Submission therefore requires a **dedicated public repository** (suggested
-name: `ruca-radio/consentkit-gtm-template`) whose root is synced from this
-directory. Keep this directory as the source of truth and copy
-`template.tpl`, `metadata.yaml`, `LICENSE`, and `README.md` to the gallery
-repo root on each release. (Note this is only for gallery listing — the
-template itself, the loader, and the widget do not depend on any GitHub
-repo being public; the loader is served by the widget worker.)
+   monorepo this directory lives in is **private**. Submission therefore
+requires a **dedicated public repository**. That repo is live at
+[`StudioDDx/consentkit-gtm-template`](https://github.com/StudioDDx/consentkit-gtm-template)
+(template file:
+[template.tpl](https://github.com/StudioDDx/consentkit-gtm-template/blob/main/template.tpl)).
+Keep this directory as the source of truth and copy `template.tpl`,
+`metadata.yaml`, `LICENSE`, and `README.md` to the gallery repo root on
+each release. (Note this is only for gallery listing — the template itself,
+the loader, and the widget do not depend on any GitHub repo being public;
+the loader is served by the widget worker.)
 
 Steps:
 
@@ -245,15 +247,3 @@ Steps:
   `widget/tests/worker.test.js` (`npx jest` in `widget/tests/`).
 - Do not commit `template.tpl` edits made by hand — regenerate instead so
   the export and its sources never drift.
-
-# Coordinated GTM candidate 2 — not published
-
-Based on the pinned public template and GTM candidate 1. Includes its three test-input corrections and scoped ConsentKit_GTM read permission. Removes the direct cookie-restore fast path and unused cookie/JSON imports. Saved choices now come from the widget after current jurisdiction/GPC resolution. This intentionally delays returning-visitor grants until widget readiness. Pair with widget candidate 1.
-
-All three embedded test bodies pass under Node mocks, including initialization deferral with a saved advertising grant and the consent_update mapping. verify.cjs also checks original Git blob identity and scoped global permission structure. This does not execute GTM's permission system.
-
-In the existing unpublished GTM-TVMRFZQX workspace: import template.tpl as a candidate; retain denied defaults for all optional categories, Consent Initialization trigger, and add the same tag's Custom Event trigger for consent_update. Check actual permissions (ConsentKit_GTM scoped read/write), all embedded tests and Preview. Use a local/synthetic site with the corrected widget and loader; verify fresh/accept/reject, GPC on/off, reload/navigation, config/record failures and early consent-gated tags. Do not publish the container. Existing production/reference container is GTM-PJ8W5RSR.
-
-Limitations: default-consent fields and region settings remain configurable. Do not configure optional grants before policy resolution; this candidate does not override operator-configured granted defaults. Raw parser scripts remain a separate integration limitation. No source push, container write, deployment or paid commitment occurred. Independent STU-13 QA is required before expansion.
-
-Reproduce local mock verification: node verify.cjs

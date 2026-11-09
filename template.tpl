@@ -20,7 +20,7 @@ ___INFO___
   "type": "TAG",
   "version": 1,
   "brand": {
-    "id": "github.com_ruca-radio",
+    "id": "github.com_StudioDDx",
     "displayName": "ConsentKit"
   },
   "containerContexts": [
@@ -207,12 +207,14 @@ ___SANDBOXED_JS_FOR_WEB_TEMPLATE___
 const setDefaultConsentState = require('setDefaultConsentState');
 const updateConsentState = require('updateConsentState');
 const copyFromDataLayer = require('copyFromDataLayer');
+const getCookieValues = require('getCookieValues');
 const setInWindow = require('setInWindow');
 const injectScript = require('injectScript');
 const queryPermission = require('queryPermission');
 const logToConsole = require('logToConsole');
 const getType = require('getType');
 const makeInteger = require('makeInteger');
+const JSON = require('JSON');
 
 const DEFAULT_LOADER_URL =
   'https://widget.consentkit.us/gtm/loader.js';
@@ -283,9 +285,19 @@ if (copyFromDataLayer('event') === 'consent_update') {
   setDefaultConsentState(defaultConsent);
   logToConsole('ConsentKit: default consent state set', defaultConsent);
 
-  // 2. Defer saved preferences to the widget. The widget resolves current
-  // jurisdiction and GPC before it emits consent_update. Restoring the cookie
-  // here can grant tracking before that policy decision is available.
+  // 2. Returning visitor fast-path: if the widget's consent cookie exists,
+  //    apply the saved choices immediately so consent-gated tags are
+  //    unblocked from the first event instead of waiting for the widget to
+  //    load and re-broadcast. The widget also pushes consent_update for
+  //    returning visitors, which the update path above applies again.
+  const cookieValues = getCookieValues('consentkit_prefs');
+  if (cookieValues && cookieValues.length > 0) {
+    const savedPrefs = JSON.parse(cookieValues[0]);
+    if (savedPrefs && getType(savedPrefs) === 'object') {
+      updateConsentState(toConsentState(savedPrefs));
+      logToConsole('ConsentKit: restored consent from cookie', savedPrefs);
+    }
+  }
 
   // 3. Load the widget. The site ID is required; without it there is
   //    nothing sensible to do, so fail the tag.
@@ -726,7 +738,7 @@ ___WEB_PERMISSIONS___
                   },
                   {
                     "type": 8,
-                    "boolean": true
+                    "boolean": false
                   },
                   {
                     "type": 8,
@@ -777,11 +789,7 @@ ___TESTS___
 scenarios:
 - name: Init sets default consent and injects the widget loader
   code: |-
-    const mockData = {};
-    mock('copyFromDataLayer', () => undefined);
-    mock('queryPermission', () => true);
     mockData.siteId = 'my-site-a1b2c3d4';
-    mock('getCookieValues', () => []);
     mockData.waitForUpdate = '500';
 
     runCode(mockData);
@@ -805,7 +813,6 @@ scenarios:
     assertApi('updateConsentState').wasNotCalled();
 - name: consent_update event updates consent state
   code: |-
-    const mockData = {};
     mock('copyFromDataLayer', (key) => {
       if (key === 'event') return 'consent_update';
       if (key === 'consent_preferences') {
@@ -823,11 +830,8 @@ scenarios:
     });
     assertApi('setDefaultConsentState').wasNotCalled();
     assertApi('injectScript').wasNotCalled();
-- name: Returning visitor waits for effective widget consent
+- name: Returning visitor consent is restored from the widget cookie
   code: |-
-    const mockData = {};
-    mock('copyFromDataLayer', () => undefined);
-    mock('queryPermission', () => true);
     mockData.siteId = 'my-site-a1b2c3d4';
     mock('getCookieValues', (name) => {
       if (name === 'consentkit_prefs') {
@@ -838,8 +842,12 @@ scenarios:
 
     runCode(mockData);
 
-    assertApi('updateConsentState').wasNotCalled();
-    assertApi('getCookieValues').wasNotCalled();
+    assertApi('updateConsentState').wasCalledWith({
+      'analytics_storage': 'denied',
+      'ad_storage': 'granted',
+      'ad_user_data': 'granted',
+      'ad_personalization': 'granted'
+    });
     assertApi('setDefaultConsentState').wasCalled();
     assertApi('injectScript').wasCalled();
 
