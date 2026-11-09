@@ -245,3 +245,15 @@ Steps:
   `widget/tests/worker.test.js` (`npx jest` in `widget/tests/`).
 - Do not commit `template.tpl` edits made by hand — regenerate instead so
   the export and its sources never drift.
+
+# Coordinated GTM candidate 2 — not published
+
+Based on the pinned public template and GTM candidate 1. Includes its three test-input corrections and scoped ConsentKit_GTM read permission. Removes the direct cookie-restore fast path and unused cookie/JSON imports. Saved choices now come from the widget after current jurisdiction/GPC resolution. This intentionally delays returning-visitor grants until widget readiness. Pair with widget candidate 1.
+
+All three embedded test bodies pass under Node mocks, including initialization deferral with a saved advertising grant and the consent_update mapping. verify.cjs also checks original Git blob identity and scoped global permission structure. This does not execute GTM's permission system.
+
+In the existing unpublished GTM-TVMRFZQX workspace: import template.tpl as a candidate; retain denied defaults for all optional categories, Consent Initialization trigger, and add the same tag's Custom Event trigger for consent_update. Check actual permissions (ConsentKit_GTM scoped read/write), all embedded tests and Preview. Use a local/synthetic site with the corrected widget and loader; verify fresh/accept/reject, GPC on/off, reload/navigation, config/record failures and early consent-gated tags. Do not publish the container. Existing production/reference container is GTM-PJ8W5RSR.
+
+Limitations: default-consent fields and region settings remain configurable. Do not configure optional grants before policy resolution; this candidate does not override operator-configured granted defaults. Raw parser scripts remain a separate integration limitation. No source push, container write, deployment or paid commitment occurred. Independent STU-13 QA is required before expansion.
+
+Reproduce local mock verification: node verify.cjs
