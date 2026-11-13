@@ -1,0 +1,56 @@
+name: release-gtm-template
+on:
+  push:
+    branches: [ops/gtm-release-20261113]
+    paths: ['ops/RELEASE']
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/gtm-candidate-2-20261113
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Refuse to rebuild if the patch is already applied
+        run: |
+          set -euo pipefail
+          echo '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' | base64 -d | gunzip > /tmp/release.patch
+          if git apply --unidiff-zero --check --reverse /tmp/release.patch 2>/dev/null; then
+            echo "release patch is already applied at HEAD; refusing to rebuild"
+            exit 1
+          fi
+          git apply --unidiff-zero --check /tmp/release.patch
+      - name: Apply release patch and pin metadata
+        run: |
+          set -euo pipefail
+          echo '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' | base64 -d | gunzip > /tmp/release.patch
+          git apply --unidiff-zero /tmp/release.patch
+          test "$(sha256sum template.tpl | cut -d" " -f1)" = "e78607e8c08bd55e61f1b1b4b419486c19f6412bb0dddcaeed3a70d2734f5a61"
+          test "$(sha256sum README.md | cut -d" " -f1)" = "8f6038e9abcfa22c66dcacdb445b7836d8e18267e087ae321fc81bc68a2be765"
+          git config user.name "StudioDDx Release Bot"
+          git config user.email "release-bot@studioddx.com"
+          git add template.tpl README.md
+          git commit -m "Release ConsentKit CMP template 2: defer saved consent to widget consent_update"
+          SHA=$(git rev-parse HEAD)
+          {
+            echo '# Community Template Gallery version manifest.'
+            echo '# https://developers.google.com/tag-platform/tag-manager/templates/gallery'
+            echo 'homepage: "https://consentkit.us"'
+            echo 'documentation: "https://github.com/StudioDDx/consentkit-gtm-template/blob/main/template.tpl"'
+            echo 'versions:'
+            echo "  - sha: $SHA"
+            echo '    changeNotes: "ConsentKit CMP 1.1.0 - deferred saved consent applied from widget consent_update after jurisdiction/GPC resolution; widget loader via widget.consentkit.us."'
+          } > metadata.yaml
+          git add metadata.yaml
+          git commit -m "Pin gallery metadata to $SHA"
+          git push origin HEAD:release/gtm-candidate-2-20261113
+      - name: Report artifact identity
+        run: |
+          set -euo pipefail
+          echo "template bytes: $(wc -c < template.tpl)"
+          sha256sum template.tpl
+          grep -n '"id": "' template.tpl
+          echo "pinned template commit: $(sed -n 's/^  - sha: //p' metadata.yaml)"
