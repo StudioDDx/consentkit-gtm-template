@@ -3,5 +3,5 @@
 homepage: "https://consentkit.us"
 documentation: "https://github.com/StudioDDx/consentkit-gtm-template/blob/main/template.tpl"
 versions:
-  - sha: b04cd9418e7df55cacb7eefebd877cb8de478cad
-    changeNotes: "ConsentKit CMP — Consent Mode v2 defaults, returning-visitor restore, widget loader via widget.consentkit.us."
+  - sha: 9b4878a838555eb14e2657ac9387151704e4d542
+    changeNotes: "ConsentKit CMP 1.1.0 - deferred saved consent applied from widget consent_update after jurisdiction/GPC resolution; widget loader via widget.consentkit.us."
