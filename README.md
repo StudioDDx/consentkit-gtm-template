@@ -15,16 +15,19 @@ When the tag fires on **Consent Initialization** (before any other tags):
    (`analytics_storage`, `ad_storage`, `ad_user_data`, `ad_personalization`),
    optionally restricted to a list of regions, plus `wait_for_update` so
    early tags pause briefly for the widget instead of firing blind.
-2. Restores a **returning visitor's** saved consent by reading the widget's
-   own `consentkit_prefs` cookie and applying it with `updateConsentState`,
-   so consent-gated tags behave correctly from the very first event.
+2. Defers a **returning visitor's** saved consent to the widget. The widget
+   resolves current jurisdiction and GPC before it pushes `consent_update`,
+   so the template does not grant optional consent from a stored cookie
+   before that policy decision.
 3. Loads the ConsentKit widget.
 
 When the visitor makes a choice in the ConsentKit banner (and on every page
 load for returning visitors), the widget pushes
 `{event: 'consent_update', consent_preferences: {necessary, analytics, marketing}}`
 to the dataLayer. The same tag, also triggered on that custom event, applies
-it to GTM's consent state with `updateConsentState`:
+it to GTM's consent state with `updateConsentState`. This event is the only
+path that grants optional consent; the template does not read the saved cookie
+itself:
 
 | ConsentKit preference | Consent Mode signal(s)                                  |
 |-----------------------|---------------------------------------------------------|
@@ -154,9 +157,11 @@ development.
      on every page load for returning visitors.
 3. Use **one** ConsentKit tag per container.
 4. **Preview** (GTM debug): on first load you should see the tag fire on
-   Consent Initialization, the default consent state in the Consent tab, and
-   — after accepting/rejecting in the banner — a `consent_update` event with
-   the tag firing again and updated consent values.
+   Consent Initialization and the default consent state in the Consent tab.
+   After the widget resolves policy, it pushes `consent_update`; the tag fires
+   again and applies the visitor's choice, including saved choices for a
+   returning visitor. Confirm that no optional consent is granted before that
+   event.
 5. **Publish** the container.
 
 That's the whole setup: no other tags or variables are required. Tags that

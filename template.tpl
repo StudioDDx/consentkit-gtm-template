@@ -10,7 +10,7 @@ ___INFO___
 
 {
   "displayName": "ConsentKit CMP",
-  "description": "Deploys the ConsentKit consent widget and connects it to Google Consent Mode v2: default consent states with optional region targeting, returning-visitor consent restore, and consent updates driven by the widget. ConsentKit is a US-privacy-focused consent management platform - https://consentkit.us",
+  "description": "Deploys the ConsentKit consent widget and connects it to Google Consent Mode v2: default consent states with optional region targeting, deferred saved consent applied only from the widget consent_update after jurisdiction and GPC resolution, and consent updates driven by the widget. ConsentKit is a US-privacy-focused consent management platform - https://consentkit.us",
   "categories": [
     "TAG_MANAGEMENT",
     "UTILITY"
@@ -186,9 +186,9 @@ ___SANDBOXED_JS_FOR_WEB_TEMPLATE___
 //   1. Sets the Google Consent Mode default consent state from the tag
 //      fields (BEFORE any consent-gated tags fire). This tag must be
 //      triggered on Consent Initialization.
-//   2. Restores a returning visitor's saved consent from the widget's
-//      `consentkit_prefs` cookie so consent-gated tags behave correctly
-//      from the very first event.
+//   2. Defers a returning visitor's saved consent to the widget. The widget
+//      resolves current jurisdiction and GPC before it pushes consent_update,
+//      so saved choices are applied only after that policy decision.
 //   3. Loads the ConsentKit widget. GTM's injectScript API cannot set
 //      data-* attributes on the script tag it creates, and the ConsentKit
 //      widget reads its configuration (data-site-id, data-api, data-debug)
@@ -198,7 +198,8 @@ ___SANDBOXED_JS_FOR_WEB_TEMPLATE___
 //      required attributes. The loader is served by the ConsentKit widget
 //      worker itself at https://widget.consentkit.us/gtm/loader.js
 //      (source: gtm-template/loader.js in the consentkit repo).
-//   4. When the widget reports a consent choice it pushes
+//   4. When the widget reports a consent choice (including saved choices for
+//      returning visitors), it pushes
 //      {event: 'consent_update', consent_preferences: {...}} to the
 //      dataLayer. Attach a Custom Event trigger for `consent_update` to
 //      this same tag: the template then calls updateConsentState so GTM's
@@ -207,14 +208,12 @@ ___SANDBOXED_JS_FOR_WEB_TEMPLATE___
 const setDefaultConsentState = require('setDefaultConsentState');
 const updateConsentState = require('updateConsentState');
 const copyFromDataLayer = require('copyFromDataLayer');
-const getCookieValues = require('getCookieValues');
 const setInWindow = require('setInWindow');
 const injectScript = require('injectScript');
 const queryPermission = require('queryPermission');
 const logToConsole = require('logToConsole');
 const getType = require('getType');
 const makeInteger = require('makeInteger');
-const JSON = require('JSON');
 
 const DEFAULT_LOADER_URL =
   'https://widget.consentkit.us/gtm/loader.js';
@@ -248,7 +247,7 @@ if (copyFromDataLayer('event') === 'consent_update') {
   data.gtmOnSuccess();
 
 // ---------------------------------------------------------------------------
-// Initialization path: defaults, returning-visitor restore, widget load.
+// Initialization path: defaults, deferred saved consent, widget load.
 // ---------------------------------------------------------------------------
 } else {
 
@@ -285,19 +284,9 @@ if (copyFromDataLayer('event') === 'consent_update') {
   setDefaultConsentState(defaultConsent);
   logToConsole('ConsentKit: default consent state set', defaultConsent);
 
-  // 2. Returning visitor fast-path: if the widget's consent cookie exists,
-  //    apply the saved choices immediately so consent-gated tags are
-  //    unblocked from the first event instead of waiting for the widget to
-  //    load and re-broadcast. The widget also pushes consent_update for
-  //    returning visitors, which the update path above applies again.
-  const cookieValues = getCookieValues('consentkit_prefs');
-  if (cookieValues && cookieValues.length > 0) {
-    const savedPrefs = JSON.parse(cookieValues[0]);
-    if (savedPrefs && getType(savedPrefs) === 'object') {
-      updateConsentState(toConsentState(savedPrefs));
-      logToConsole('ConsentKit: restored consent from cookie', savedPrefs);
-    }
-  }
+  // 2. Defer saved preferences to the widget. The widget resolves current
+  // jurisdiction and GPC before it emits consent_update. Restoring the cookie
+  // here can grant tracking before that policy decision is available.
 
   // 3. Load the widget. The site ID is required; without it there is
   //    nothing sensible to do, so fail the tag.
@@ -669,39 +658,6 @@ ___WEB_PERMISSIONS___
   {
     "instance": {
       "key": {
-        "publicId": "get_cookies",
-        "versionId": "1"
-      },
-      "param": [
-        {
-          "key": "cookieAccess",
-          "value": {
-            "type": 1,
-            "string": "specific"
-          }
-        },
-        {
-          "key": "cookieNames",
-          "value": {
-            "type": 2,
-            "listItem": [
-              {
-                "type": 1,
-                "string": "consentkit_prefs"
-              }
-            ]
-          }
-        }
-      ]
-    },
-    "clientAnnotations": {
-      "isEditedByUser": true
-    },
-    "isRequired": true
-  },
-  {
-    "instance": {
-      "key": {
         "publicId": "access_globals",
         "versionId": "1"
       },
@@ -738,7 +694,7 @@ ___WEB_PERMISSIONS___
                   },
                   {
                     "type": 8,
-                    "boolean": false
+                    "boolean": true
                   },
                   {
                     "type": 8,
@@ -789,7 +745,11 @@ ___TESTS___
 scenarios:
 - name: Init sets default consent and injects the widget loader
   code: |-
+    const mockData = {};
+    mock('copyFromDataLayer', () => undefined);
+    mock('queryPermission', () => true);
     mockData.siteId = 'my-site-a1b2c3d4';
+    mock('getCookieValues', () => []);
     mockData.waitForUpdate = '500';
 
     runCode(mockData);
@@ -813,6 +773,7 @@ scenarios:
     assertApi('updateConsentState').wasNotCalled();
 - name: consent_update event updates consent state
   code: |-
+    const mockData = {};
     mock('copyFromDataLayer', (key) => {
       if (key === 'event') return 'consent_update';
       if (key === 'consent_preferences') {
@@ -830,8 +791,11 @@ scenarios:
     });
     assertApi('setDefaultConsentState').wasNotCalled();
     assertApi('injectScript').wasNotCalled();
-- name: Returning visitor consent is restored from the widget cookie
+- name: Returning visitor waits for effective widget consent
   code: |-
+    const mockData = {};
+    mock('copyFromDataLayer', () => undefined);
+    mock('queryPermission', () => true);
     mockData.siteId = 'my-site-a1b2c3d4';
     mock('getCookieValues', (name) => {
       if (name === 'consentkit_prefs') {
@@ -842,12 +806,8 @@ scenarios:
 
     runCode(mockData);
 
-    assertApi('updateConsentState').wasCalledWith({
-      'analytics_storage': 'denied',
-      'ad_storage': 'granted',
-      'ad_user_data': 'granted',
-      'ad_personalization': 'granted'
-    });
+    assertApi('updateConsentState').wasNotCalled();
+    assertApi('getCookieValues').wasNotCalled();
     assertApi('setDefaultConsentState').wasCalled();
     assertApi('injectScript').wasCalled();
 
