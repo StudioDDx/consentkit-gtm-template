@@ -1,0 +1,37 @@
+name: publish-gtm-template
+on:
+  push:
+    branches: [ops/gtm-release-20261113]
+    paths: ['ops/PUBLISH']
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/gtm-candidate-2-20261113
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify release branch before publishing
+        run: |
+          set -euo pipefail
+          git fetch origin main release/gtm-candidate-2-20261113
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/release/gtm-candidate-2-20261113)"
+          git merge-base --is-ancestor origin/main HEAD
+          grep -q '"id": "github.com_StudioDDx"' template.tpl
+          if grep -q 'ruca-radio\|DeLuca' template.tpl README.md; then
+            echo "personal identity string present; refusing to publish"
+            exit 1
+          fi
+          pinned=$(sed -n 's/^  - sha: //p' metadata.yaml | head -1)
+          test "$(git rev-parse "$pinned")" = "$(git rev-parse HEAD~1)"
+          echo "template bytes: $(wc -c < template.tpl)"
+          sha256sum template.tpl
+          echo "pinned template commit: $pinned"
+      - name: Fast-forward main
+        run: |
+          set -euo pipefail
+          git push origin HEAD:main
+          echo "published $(git rev-parse HEAD) to main"
